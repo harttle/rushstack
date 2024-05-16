@@ -19,6 +19,11 @@ describe('commandLine', () => {
       const result = parseCommandLine(['--subspace'])
       expect(result).toHaveProperty('error', 'Expecting argument after "--subspace"');
     });
+
+    it('sets findDependency when --find-dependency specified', async () => {
+      const result = parseCommandLine(['--find-dependency', 'react'])
+      expect(result).toHaveProperty('findDependency', 'react');
+    });
   });
 });
 

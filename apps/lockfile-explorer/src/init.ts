@@ -11,6 +11,8 @@ import path from 'path';
 
 import { type IAppState, type IRushProjectDetails, ProjectType } from './state';
 
+let appState: IAppState;
+
 export const init = (options: {
   lockfileExplorerProjectRoot: string;
   appVersion: string;
@@ -20,7 +22,6 @@ export const init = (options: {
   const { lockfileExplorerProjectRoot, appVersion, debugMode, subspaceName } = options;
   const currDir = process.cwd();
 
-  let appState: IAppState | undefined;
   let currExploredDir = Path.convertToSlashes(currDir);
   while (currExploredDir.includes('/')) {
     // Look for a rush.json [rush project] or pnpm-lock.yaml file [regular pnpm workspace]
@@ -52,6 +53,7 @@ export const init = (options: {
         projectRoot: currExploredDir,
         rush: {
           rushJsonPath,
+          rushConfiguration,
           projectsByProjectFolder
         }
       };
@@ -80,3 +82,10 @@ export const init = (options: {
 
   return appState;
 };
+
+export function getAppState (): IAppState {
+  if (!appState) {
+    throw new Error('appState not initialized');
+  }
+  return appState;
+}

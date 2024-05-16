@@ -13,10 +13,11 @@ import type { IAppContext } from '@rushstack/lockfile-explorer-web/lib/AppContex
 import { Colorize } from '@rushstack/terminal';
 import type { Lockfile } from '@pnpm/lockfile-types';
 
-import { convertLockfileV6DepPathToV5DepPath } from './utils';
+import { normalizeDependencyPathToV5 } from './utils';
 import { init } from './init';
 import type { IAppState } from './state';
 import { type ICommandLine, parseCommandLine } from './commandLine';
+import { findDependencyOccurrences, summarizeDependencyOccurrences } from './find-dependency';
 
 function startApp(debugMode: boolean): void {
   const lockfileExplorerProjectRoot: string = PackageJsonLookup.instance.tryGetPackageFolderFor(__dirname)!;
@@ -60,6 +61,16 @@ function startApp(debugMode: boolean): void {
   const subspaceName: string = result.subspace ?? 'default';
 
   const appState: IAppState = init({ lockfileExplorerProjectRoot, appVersion, debugMode, subspaceName });
+
+  if (result.findDependency) {
+    console.error(`Finding dependency of ${result.findDependency}`);
+    findDependencyOccurrences(result.findDependency).then(occurrences => {
+      console.log(summarizeDependencyOccurrences(occurrences));
+    }).catch(err => {
+      console.error('Failed with error', err);
+    });
+    return;
+  }
 
   // Important: This must happen after init() reads the current working directory
   process.chdir(appState.lockfileExplorerProjectRoot);
@@ -105,33 +116,7 @@ function startApp(debugMode: boolean): void {
   app.get('/api/lockfile', async (req: express.Request, res: express.Response) => {
     const pnpmLockfileText: string = await FileSystem.readFileAsync(appState.pnpmLockfileLocation);
     const doc = yaml.load(pnpmLockfileText) as Lockfile;
-    const { packages, lockfileVersion } = doc;
-
-    let shrinkwrapFileMajorVersion: number;
-    if (typeof lockfileVersion === 'string') {
-      const isDotIncluded: boolean = lockfileVersion.includes('.');
-      shrinkwrapFileMajorVersion = parseInt(
-        lockfileVersion.substring(0, isDotIncluded ? lockfileVersion.indexOf('.') : undefined),
-        10
-      );
-    } else if (typeof lockfileVersion === 'number') {
-      shrinkwrapFileMajorVersion = Math.floor(lockfileVersion);
-    } else {
-      shrinkwrapFileMajorVersion = 0;
-    }
-
-    if (shrinkwrapFileMajorVersion < 5 || shrinkwrapFileMajorVersion > 6) {
-      throw new Error('The current lockfile version is not supported.');
-    }
-
-    if (packages && shrinkwrapFileMajorVersion === 6) {
-      const updatedPackages: Lockfile['packages'] = {};
-      for (const [dependencyPath, dependency] of Object.entries(packages)) {
-        updatedPackages[convertLockfileV6DepPathToV5DepPath(dependencyPath)] = dependency;
-      }
-      doc.packages = updatedPackages;
-    }
-
+    normalizeDependencyPathToV5(doc);
     res.send({
       doc,
       subspaceName

@@ -5,6 +5,7 @@ export interface ICommandLine {
   showedHelp: boolean;
   error: string | undefined;
   subspace: string | undefined;
+  findDependency?: string;
 }
 
 function showHelp(): void {
@@ -23,6 +24,9 @@ Parameters:
 
 --subspace SUBSPACE, -s SUBSPACE
        Load the lockfile for the specified Rush subspace.
+
+--find-dependency DEPENDENCY, -f DEPENDENCY
+       Find occurrences of a dependency name recursively.
 `.trim()
   );
 }
@@ -32,7 +36,7 @@ export function parseCommandLine(args: string[]): ICommandLine {
 
   let i: number = 0;
 
-  while (i < args.length) {
+  while (i < args.length && !result.error) {
     const parameter: string = args[i];
     ++i;
 
@@ -46,12 +50,12 @@ export function parseCommandLine(args: string[]): ICommandLine {
 
       case '--subspace':
       case '-s':
-        if (i >= args.length || args[i].startsWith('-')) {
-          result.error = `Expecting argument after "${parameter}"`;
-          return result;
-        }
-        result.subspace = args[i];
-        ++i;
+        result.subspace = readParameterValue(parameter)
+        break;
+
+      case '--find-dependency':
+      case '-f':
+        result.findDependency = readParameterValue(parameter);
         break;
 
       default:
@@ -61,4 +65,12 @@ export function parseCommandLine(args: string[]): ICommandLine {
   }
 
   return result;
+
+  function readParameterValue(parameter: string): string | undefined {
+      if (i >= args.length || args[i].startsWith('-')) {
+        result.error = `Expecting argument after "${parameter}"`;
+        return;
+      }
+      return args[i++];
+  }
 }
